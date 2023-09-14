@@ -3,7 +3,7 @@ import json
 from jinja2 import Environment, FileSystemLoader
 
 # List of required attributes within the "QUEUE_OBJECT" field
-required_attributes = ["DEFPSIST", "DESCR", "MSGDLVSQ", "PROCESS", "TRIGDATA"]
+required_attributes = ["DEFPSIST", "DESCR", "DISTL", "MSGDLVSQ", "PROCESS", "TRIGDATA"]
 
 # Fields that should be of integer data type
 integer_fields = ["MAXDEPTH", "MAXMSGL", "QDEPTHI", "QDEPTHLO"]
@@ -70,11 +70,10 @@ try:
 
     # Determine which JSON object structure to process based on the file's content
     if "normal_queue_object" in json_data:
-        # Create a Jinja2 environment pointing to the directory containing your template files
-        template_dir = 'path_to_template_directory'  # Replace with the actual path
-        env = Environment(loader=FileSystemLoader(template_dir))
+        # Create a Jinja2 environment pointing to the current directory
+        env = Environment(loader=FileSystemLoader("."))
 
-        # Load the external templates
+        # Load the external templates from the current directory
         create_template = env.get_template('create_template.j2')
         delete_template = env.get_template('delete_template.j2')
 
