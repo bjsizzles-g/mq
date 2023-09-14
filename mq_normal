@@ -1,5 +1,7 @@
+
 import sys
 import json
+import logging
 from jinja2 import Environment, FileSystemLoader
 
 # List of required attributes within the "QUEUE_OBJECT" field
@@ -8,31 +10,42 @@ required_attributes = ["DEFPSIST", "DESCR", "DISTL", "MSGDLVSQ", "PROCESS", "TRI
 # Fields that should be of integer data type
 integer_fields = ["MAXDEPTH", "MAXMSGL", "QDEPTHI", "QDEPTHLO"]
 
+# Configure logging
+logging.basicConfig(filename=sys.argv[3], level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 # Function to process a JSON object with the "normal_queue_object" structure
-def process_normal_queue_object(json_data, output_prefix, create_template, delete_template):
+def process_normal_queue_object(json_data, output_prefix, create_template, delete_template, json_file_name):
     # Validate the presence of "normal_queue_object" key
     if "normal_queue_object" not in json_data:
         raise KeyError('"normal_queue_object" key is missing in JSON data')
 
     # Validate the presence of "QUEUENAME" and "QUEUE_OBJECT" keys within each entry
-    for entry in json_data["normal_queue_object"]:
+    encountered_queue_names = set()  # To track encountered QUEUENAME values
+
+    for index, entry in enumerate(json_data["normal_queue_object"], start=1):
         if "QUEUENAME" not in entry:
-            raise KeyError('"QUEUENAME" key is missing in an entry')
+            raise KeyError(f'"QUEUENAME" key is missing in entry {index} of file {json_file_name}')
         if "QUEUE_OBJECT" not in entry:
-            raise KeyError('"QUEUE_OBJECT" key is missing in an entry')
+            raise KeyError(f'"QUEUE_OBJECT" key is missing in entry {index} of file {json_file_name}')
 
         # Validate the presence of required attributes within "QUEUE_OBJECT"
         queue_object = entry["QUEUE_OBJECT"]
         for attr in required_attributes:
             if attr not in queue_object:
-                raise KeyError(f'"{attr}" attribute is missing in "QUEUE_OBJECT" of an entry')
+                raise KeyError(f'"{attr}" attribute is missing in "QUEUE_OBJECT" of entry {index} of file {json_file_name}')
 
         # Validate data types for integer fields
         for field in integer_fields:
             if field in queue_object:
                 value = queue_object[field]
                 if not isinstance(value, int):
-                    raise TypeError(f'"{field}" attribute should be of integer data type in "QUEUE_OBJECT" of an entry')
+                    raise TypeError(f'"{field}" attribute should be of integer data type in entry {index} of file {json_file_name}')
+
+        # Check for duplicate QUEUENAME values
+        queue_name = entry["QUEUENAME"]
+        if queue_name in encountered_queue_names:
+            raise ValueError(f'Duplicate QUEUENAME value found in entry {index} of file {json_file_name}: {queue_name}')
+        encountered_queue_names.add(queue_name)
 
     # Example: Render templates and print the results
     for entry in json_data["normal_queue_object"]:
@@ -57,12 +70,16 @@ def process_normal_queue_object(json_data, output_prefix, create_template, delet
         with open(output_file, "a") as output:
             output.write(cleaned_template)
 
+        # Log execution outcome
+        logging.info(f"Processed entry for QUEUENAME: {entry['QUEUENAME']} from file {json_file_name}. Output saved to {output_file}")
+
 # Check if the correct number of command-line arguments is provided
-if len(sys.argv) != 3:
-    print("Usage: python script.py input.json output_prefix")
+if len(sys.argv) != 4:
+    print("Usage: python script.py input.json output_prefix log_file")
     sys.exit(1)
 
-# The first argument (sys.argv[1]) is the JSON file path, and the second argument (sys.argv[2]) is the output prefix
+# The first argument (sys.argv[1]) is the JSON file path, the second argument (sys.argv[2]) is the output prefix,
+# and the third argument (sys.argv[3]) is the log file name
 json_file_path = sys.argv[1]
 output_prefix = sys.argv[2]
 
@@ -70,6 +87,7 @@ try:
     # Read the JSON data from the provided file
     with open(json_file_path, "r") as json_file:
         json_data = json.load(json_file)
+        json_file_name = json_file.name  # Get the name of the JSON file being processed
 
     # Determine which JSON object structure to process based on the file's content
     if "normal_queue_object" in json_data:
@@ -80,11 +98,13 @@ try:
         create_template = env.get_template('create_template.j2')
         delete_template = env.get_template('delete_template.j2')
 
-        process_normal_queue_object(json_data, output_prefix, create_template, delete_template)
+        process_normal_queue_object(json_data, output_prefix, create_template, delete_template, json_file_name)
     else:
+        logging.error(f"Unsupported JSON structure in file {json_file_name}")
         print("Unsupported JSON structure in the file.")
         sys.exit(1)
 
-except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError) as e:
-    print(f"Error: {e}")
+except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+    logging.error(f"Error in file {json_file_name}: {e}")
+    print(f"Error in file {json_file_name}: {e}")
     sys.exit(1)
