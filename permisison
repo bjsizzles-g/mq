@@ -1,0 +1,60 @@
+.
+import argparse
+import subprocess
+import logging
+
+# Configure the logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Function to execute MQSC command and extract queue names
+def execute_mqsc_command(qmgr_name):
+    mqsc_command = f'echo "DIS Q(*)" | runmqsc {qmgr_name}'
+    
+    try:
+        mqsc_output = subprocess.check_output(mqsc_command, shell=True, text=True)
+        # Parse mqsc_output to extract queue names
+        queue_names = extract_queue_names(mqsc_output)
+        return queue_names
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error executing MQSC command: {e}")
+        return []
+
+# Function to extract queue names from MQSC command output
+def extract_queue_names(mqsc_output):
+    # Implement the logic to extract queue names from the mqsc_output
+    # This will depend on the format of the output
+    # For example, you can split the output by line and look for lines starting with "QUEUE("
+    queue_names = []
+    for line in mqsc_output.split('\n'):
+        if line.startswith('QUEUE('):
+            parts = line.split()
+            if len(parts) > 1:
+                queue_name = parts[1].strip(')').strip('"')
+                queue_names.append(queue_name)
+    return queue_names
+
+# Function to run the second command as the 'fid' user
+def run_second_command(qmgr_name, fid_user, queue_name, log_file):
+    command = f'/usr/sbin/runuser {fid_user} -c "mqauth -m {qmgr_name} -t -q -n {queue_name} -p {fid_user} +allmqi > {log_file}"'
+    try:
+        subprocess.run(command, shell=True, check=True)
+        logging.info(f"Successfully ran command for queue {queue_name}")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error running command for queue {queue_name}: {e}")
+
+# Main function
+def main():
+    parser = argparse.ArgumentParser(description="Execute MQSC command and run the second command")
+    parser.add_argument("qmgr_name", help="IBM MQ Queue Manager name")
+    parser.add_argument("fid_user", help="The 'fid' user")
+
+    args = parser.parse_args()
+
+    log_file = input("Enter the path to the log file: ")
+
+    queue_names = execute_mqsc_command(args.qmgr_name)
+    for queue_name in queue_names:
+        run_second_command(args.qmgr_name, args.fid_user, queue_name, log_file)
+
+if __name__ == "__main__":
+    main()
