@@ -1,0 +1,39 @@
+.
+import subprocess
+import sys
+
+if len(sys.argv) != 3:
+    print("Usage: python mqsc_script.py <User> <QMGR_Name>")
+    sys.exit(1)
+
+user = sys.argv[1]
+qmgr_name = sys.argv[2]
+
+# Hardcode the MQSC create and delete commands
+mqsc_create_command = """
+DEFINE QLOCAL(TEST.Q)
+DISPLAY QLOCAL(TEST.Q)
+"""
+
+mqsc_delete_command = """
+DELETE QLOCAL(TEST.Q)
+"""
+
+# Hardcode the log file path
+log_file_path = 'mqsc_output.log'
+
+def run_mqsc(command):
+    try:
+        with open(log_file_path, 'a') as log_file:
+            # Use the 'runuser' command to switch to the specified user and run 'runmqsc'
+            process = subprocess.Popen(['runuser', user, '-c', f'/usr/sbin/runmqsc {qmgr_name}'], stdin=subprocess.PIPE, stdout=log_file, stderr=subprocess.PIPE, text=True)
+            process.communicate(input=command)
+            process.wait()
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+
+# Run the create MQSC commands
+run_mqsc(mqsc_create_command)
+
+# Run the delete MQSC commands
+run_mqsc(mqsc_delete_command)
