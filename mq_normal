@@ -1,15 +1,15 @@
 import sys
 import json
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader
 
 # List of required attributes within the "QUEUE_OBJECT" field
-required_attributes = ["DEFPSIST", "DESCR", "DISTL", "MSGDLVSQ", "PROCESS", "TRIGDATA"]
+required_attributes = ["DEFPSIST", "DESCR", "MSGDLVSQ", "PROCESS", "TRIGDATA"]
 
 # Fields that should be of integer data type
 integer_fields = ["MAXDEPTH", "MAXMSGL", "QDEPTHI", "QDEPTHLO"]
 
 # Function to process a JSON object with the "normal_queue_object" structure
-def process_normal_queue_object(json_data, output_prefix):
+def process_normal_queue_object(json_data, output_prefix, create_template, delete_template):
     # Validate the presence of "normal_queue_object" key
     if "normal_queue_object" not in json_data:
         raise KeyError('"normal_queue_object" key is missing in JSON data')
@@ -34,18 +34,15 @@ def process_normal_queue_object(json_data, output_prefix):
                 if not isinstance(value, int):
                     raise TypeError(f'"{field}" attribute should be of integer data type in "QUEUE_OBJECT" of an entry')
 
-    # Rest of your code to process the JSON data and templates
-    # ...
-
     # Example: Render templates and print the results
     for entry in json_data["normal_queue_object"]:
         operation = entry.get("OPERATION", "create")
 
         if operation == "create":
-            template = Template(create_template_str)
+            template = create_template
             output_file = f"{output_prefix}_create_normal_queue.iac"
         elif operation == "delete":
-            template = Template(delete_template_str)
+            template = delete_template
             output_file = f"{output_prefix}_delete_normal_queue.iac"
         else:
             # Handle other operations if needed
@@ -73,7 +70,15 @@ try:
 
     # Determine which JSON object structure to process based on the file's content
     if "normal_queue_object" in json_data:
-        process_normal_queue_object(json_data, output_prefix)
+        # Create a Jinja2 environment pointing to the directory containing your template files
+        template_dir = 'path_to_template_directory'  # Replace with the actual path
+        env = Environment(loader=FileSystemLoader(template_dir))
+
+        # Load the external templates
+        create_template = env.get_template('create_template.j2')
+        delete_template = env.get_template('delete_template.j2')
+
+        process_normal_queue_object(json_data, output_prefix, create_template, delete_template)
     else:
         print("Unsupported JSON structure in the file.")
         sys.exit(1)
