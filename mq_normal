@@ -1,0 +1,83 @@
+import sys
+import json
+from jinja2 import Template
+
+# List of required attributes within the "QUEUE_OBJECT" field
+required_attributes = ["DEFPSIST", "DESCR", "DISTL", "MSGDLVSQ", "PROCESS", "TRIGDATA"]
+
+# Fields that should be of integer data type
+integer_fields = ["MAXDEPTH", "MAXMSGL", "QDEPTHI", "QDEPTHLO"]
+
+# Function to process a JSON object with the "normal_queue_object" structure
+def process_normal_queue_object(json_data, output_prefix):
+    # Validate the presence of "normal_queue_object" key
+    if "normal_queue_object" not in json_data:
+        raise KeyError('"normal_queue_object" key is missing in JSON data')
+
+    # Validate the presence of "QUEUENAME" and "QUEUE_OBJECT" keys within each entry
+    for entry in json_data["normal_queue_object"]:
+        if "QUEUENAME" not in entry:
+            raise KeyError('"QUEUENAME" key is missing in an entry')
+        if "QUEUE_OBJECT" not in entry:
+            raise KeyError('"QUEUE_OBJECT" key is missing in an entry')
+
+        # Validate the presence of required attributes within "QUEUE_OBJECT"
+        queue_object = entry["QUEUE_OBJECT"]
+        for attr in required_attributes:
+            if attr not in queue_object:
+                raise KeyError(f'"{attr}" attribute is missing in "QUEUE_OBJECT" of an entry')
+
+        # Validate data types for integer fields
+        for field in integer_fields:
+            if field in queue_object:
+                value = queue_object[field]
+                if not isinstance(value, int):
+                    raise TypeError(f'"{field}" attribute should be of integer data type in "QUEUE_OBJECT" of an entry')
+
+    # Rest of your code to process the JSON data and templates
+    # ...
+
+    # Example: Render templates and print the results
+    for entry in json_data["normal_queue_object"]:
+        operation = entry.get("OPERATION", "create")
+
+        if operation == "create":
+            template = Template(create_template_str)
+            output_file = f"{output_prefix}_create_normal_queue.iac"
+        elif operation == "delete":
+            template = Template(delete_template_str)
+            output_file = f"{output_prefix}_delete_normal_queue.iac"
+        else:
+            # Handle other operations if needed
+            pass
+
+        rendered_template = template.render(QUEUENAME=entry["QUEUENAME"], QUEUE_OBJECT=entry["QUEUE_OBJECT"])
+
+        # Open the output file in append mode and save the rendered template
+        with open(output_file, "a") as output:
+            output.write(rendered_template)
+
+# Check if the correct number of command-line arguments is provided
+if len(sys.argv) != 3:
+    print("Usage: python script.py input.json output_prefix")
+    sys.exit(1)
+
+# The first argument (sys.argv[1]) is the JSON file path, and the second argument (sys.argv[2]) is the output prefix
+json_file_path = sys.argv[1]
+output_prefix = sys.argv[2]
+
+try:
+    # Read the JSON data from the provided file
+    with open(json_file_path, "r") as json_file:
+        json_data = json.load(json_file)
+
+    # Determine which JSON object structure to process based on the file's content
+    if "normal_queue_object" in json_data:
+        process_normal_queue_object(json_data, output_prefix)
+    else:
+        print("Unsupported JSON structure in the file.")
+        sys.exit(1)
+
+except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError) as e:
+    print(f"Error: {e}")
+    sys.exit(1)
