@@ -12,15 +12,15 @@ fid = sys.argv[1]
 queue_manager_name = sys.argv[2]
 log_file = sys.argv[3]
 
-# Configure logging
+# Configure logging for your script
 logging.basicConfig(
-    level=logging.INFO,  # Set the logging level (INFO, DEBUG, ERROR, etc.)
-    filename=log_file,   # Use the log file provided as an argument
-    format='%(asctime)s [%(levelname)s] - %(message)s',  # Define log message format
-    datefmt='%Y-%m-%d %H:%M:%S'  # Define date and time format
+    level=logging.INFO,
+    filename=log_file,
+    format='%(asctime)s [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 
-# Log a start message
+# Log a start message for your script
 logging.info("Performing CRUD Operations on Normal Queue in MQ")
 
 try:
@@ -31,12 +31,18 @@ try:
     # Execute the create_queue.mqsc script with fid and queue_manager_name substitutions
     create_command = f"/usr/sbin/runuser {fid} -c 'runmqsc {queue_manager_name} < {create_script}'"
     logging.info(f"Executing CREATE operation with FID: {fid}, Queue Manager: {queue_manager_name}")
-    subprocess.run(create_command, shell=True, check=True)  # Check for script execution failure
+    
+    # Capture the command output and log it
+    create_output = subprocess.check_output(create_command, shell=True, stderr=subprocess.STDOUT, text=True)
+    logging.info("[CREATE COMMAND OUTPUT]\n" + create_output)
 
     # Execute the delete_queue.mqsc script with fid and queue_manager_name substitutions
     delete_command = f"/usr/sbin/runuser {fid} -c 'runmqsc {queue_manager_name} < {delete_script}'"
     logging.info(f"Executing DELETE operation with FID: {fid}, Queue Manager: {queue_manager_name}")
-    subprocess.run(delete_command, shell=True, check=True)  # Check for script execution failure
+    
+    # Capture the command output and log it
+    delete_output = subprocess.check_output(delete_command, shell=True, stderr=subprocess.STDOUT, text=True)
+    logging.info("[DELETE COMMAND OUTPUT]\n" + delete_output)
 
     # Log a success message
     logging.info("Script executions completed successfully.")
@@ -50,5 +56,5 @@ except Exception as e:
     logging.error(f"An unexpected error occurred: {e}")
     sys.exit(1)  # Exit with a non-zero status code to indicate failure
 
-# Log an end message
+# Log an end message for your script
 logging.info("CRUD Operations on Normal Queue in MQ completed.")
