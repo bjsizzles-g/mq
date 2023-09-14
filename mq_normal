@@ -50,9 +50,12 @@ def process_normal_queue_object(json_data, output_prefix, create_template, delet
 
         rendered_template = template.render(QUEUENAME=entry["QUEUENAME"], QUEUE_OBJECT=entry["QUEUE_OBJECT"])
 
-        # Open the output file in append mode and save the rendered template
+        # Clean up the rendered output: remove empty lines and leading spaces
+        cleaned_template = "\n".join(line.strip() for line in rendered_template.splitlines() if line.strip())
+
+        # Open the output file in append mode and save the cleaned template
         with open(output_file, "a") as output:
-            output.write(rendered_template)
+            output.write(cleaned_template)
 
 # Check if the correct number of command-line arguments is provided
 if len(sys.argv) != 3:
