@@ -1,0 +1,77 @@
+.
+import subprocess
+import sys
+import logging
+
+# Check if all three arguments are provided
+if len(sys.argv) != 4:
+    print("Usage: python script.py <fid> <queue_manager> <log_file>")
+    sys.exit(1)
+
+# Get the arguments
+fid = sys.argv[1]
+queue_manager_name = sys.argv[2]
+log_file = sys.argv[3]
+
+# Configure logging for your script
+logging.basicConfig(
+    level=logging.INFO,
+    filename=log_file,
+    format='%(asctime)s [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+# Log a start message for your script
+logging.info("Performing CRUD Operations on Normal Queue in MQ")
+
+try:
+    # Construct the file paths for your MQSC scripts
+    create_script = f"create_queue.mqsc"
+    delete_script = f"delete_queue.mqsc"
+
+    # Execute the create_queue.mqsc script with fid and queue_manager_name substitutions
+    create_command = f"/usr/sbin/runuser {fid} -c 'runmqsc {queue_manager_name}'"
+    logging.info(f"Executing CREATE operation with FID: {fid}, Queue Manager: {queue_manager_name}")
+    
+    try:
+        # Open the create_queue.mqsc script and execute it with input redirection
+        with open(create_script, "r") as create_script_file:
+            create_output = subprocess.check_output(
+                create_command, shell=True, stdin=create_script_file, stderr=subprocess.STDOUT, text=True
+            )
+            logging.info("[CREATE COMMAND OUTPUT]\n" + create_output)
+    except subprocess.CalledProcessError as create_error:
+        # Check if the error message contains "queue already exists"
+        if "queue already exists" in create_error.output:
+            logging.warning("Queue already exists. Skipping CREATE operation.")
+        else:
+            # Log the error and exit with a non-zero status code
+            logging.error(f"CREATE operation failed with error: {create_error}")
+            sys.exit(1)
+
+    # Execute the delete_queue.mqsc script with fid and queue_manager_name substitutions
+    delete_command = f"/usr/sbin/runuser {fid} -c 'runmqsc {queue_manager_name}'"
+    logging.info(f"Executing DELETE operation with FID: {fid}, Queue Manager: {queue_manager_name}")
+    
+    try:
+        # Open the delete_queue.mqsc script and execute it with input redirection
+        with open(delete_script, "r") as delete_script_file:
+            delete_output = subprocess.check_output(
+                delete_command, shell=True, stdin=delete_script_file, stderr=subprocess.STDOUT, text=True
+            )
+            logging.info("[DELETE COMMAND OUTPUT]\n" + delete_output)
+    except subprocess.CalledProcessError as delete_error:
+        # Log the error and exit with a non-zero status code
+        logging.error(f"DELETE operation failed with error: {delete_error}")
+        sys.exit(1)
+
+    # Log a success message
+    logging.info("Script executions completed successfully.")
+
+except Exception as e:
+    # Log other unexpected exceptions
+    logging.error(f"An unexpected error occurred: {e}")
+    sys.exit(1)  # Exit with a non-zero status code to indicate failure
+
+# Log an end message for your script
+logging.info("CRUD Operations on Normal Queue in MQ completed.")
